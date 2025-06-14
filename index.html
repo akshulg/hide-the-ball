@@ -206,6 +206,16 @@
       checkIfBallExposed();
     }
 
+    let movementInterval = null;
+    function startMoving(dx, dy) {
+      if (movementInterval) clearInterval(movementInterval);
+      movementInterval = setInterval(() => movePlayer(dx, dy), 30);
+    }
+    function stopMoving() {
+      clearInterval(movementInterval);
+      movementInterval = null;
+    }
+
     document.addEventListener('keydown', (e) => {
       if(e.key==='w') movePlayer(0, -1);
       if(e.key==='s') movePlayer(0, 1);
@@ -213,10 +223,15 @@
       if(e.key==='d') movePlayer(1, 0);
     });
 
-    document.getElementById('upBtn').addEventListener('click', () => movePlayer(0, -1));
-    document.getElementById('downBtn').addEventListener('click', () => movePlayer(0, 1));
-    document.getElementById('leftBtn').addEventListener('click', () => movePlayer(-1, 0));
-    document.getElementById('rightBtn').addEventListener('click', () => movePlayer(1, 0));
+    document.getElementById('upBtn').addEventListener('touchstart', e => { e.preventDefault(); startMoving(0, -1); });
+    document.getElementById('downBtn').addEventListener('touchstart', e => { e.preventDefault(); startMoving(0, 1); });
+    document.getElementById('leftBtn').addEventListener('touchstart', e => { e.preventDefault(); startMoving(-1, 0); });
+    document.getElementById('rightBtn').addEventListener('touchstart', e => { e.preventDefault(); startMoving(1, 0); });
+
+    document.getElementById('upBtn').addEventListener('touchend', stopMoving);
+    document.getElementById('downBtn').addEventListener('touchend', stopMoving);
+    document.getElementById('leftBtn').addEventListener('touchend', stopMoving);
+    document.getElementById('rightBtn').addEventListener('touchend', stopMoving);
 
     function loop() {
       updateKid();
