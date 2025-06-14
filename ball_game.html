@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Ball Game</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { background: #f0f0f0; display: block; margin: 0 auto; }
+    #messageBox, #introBox {
+      position: absolute;
+      background: white; padding: 10px; border: 2px solid black;
+      top:10px; left:50%; transform:translateX(-50%);
+      display: none;
+    }
+    #introBox {
+      display: block;
+      top: 30px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="600" height="600"></canvas>
+  <div id="introBox">Objective: Hide the blue ball under any object before the kid finds it!. WASD to move the ball.</div>
+  <div id="messageBox"></div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const messageBox = document.getElementById('messageBox');
+
+    // Hide intro after 5 seconds
+    setTimeout(() => {
+      document.getElementById('introBox').style.display = 'none';
+    }, 5000);
+
+    const player = { x:300, y:300, r:10, speed:4 };
+
+    const objects = [
+      { name:'table', imgSrc:'assets/table.png', x:150, y:150, w:80, h:80, solid:true, labeled:false },
+      { name:'chair', imgSrc:'assets/chair.png', x:350, y:150, w:60, h:60, solid:true, labeled:false },
+      { name:'bed',   imgSrc:'assets/bed.png',   x:250, y:350, w:100, h:60, solid:true, labeled:false },
+      { name:'door',  imgSrc:'', x:596, y:250, w:4, h:100, solid: true, labeled:false }
+    ];
+    const door = objects.find(o => o.name === 'door');
+
+    // Load object images
+    objects.forEach(o => {
+      if (o.imgSrc) {
+        o.img = new Image();
+        o.img.src = o.imgSrc;
+      }
+    });
+
+    const kid = {
+      x: door.x, y: door.y + door.h / 2 - 37.5, w: 60, h: 75, // Kid image is now 1.5x size
+      targetX: 280, targetY: 280,
+      img: new Image(),
+      speed: 0.3,
+      active: false,
+      solid: true,
+      name: 'kid'
+    };
+    kid.img.src = 'assets/kid.png';
+
+    let gameOver = false;
+    let gameWon = false;
+    let ballHidden = false;
+    let graceEnded = false;
+    let dangerTimer = null;
+
+    // Kid enters after 10 seconds
+    setTimeout(() => {
+      kid.active = true;
+
+      // 5-second grace period starts
+      setTimeout(() => {
+        graceEnded = true;
+        checkIfBallExposed();
+      }, 5000);
+
+      // Kid leaves after 50 seconds if no game over
+      setTimeout(() => {
+        if (!gameOver) {
+          gameWon = true;
+          showMessage("You Win!");
+
+          // Trigger kid's exit movement toward the door
+          kid.targetX = door.x;
+          kid.targetY = door.y + door.h / 2 - kid.h / 2;
+        }
+      }, 50000);
+    }, 10000);
+
+    objects.push(kid); // Add kid to game objects
+
+    // Check if ball is exposed during grace timeout
+    function checkIfBallExposed() {
+      if (!graceEnded || gameOver || gameWon) return;
+
+      const isHiddenNow = objects.some(o => o.name !== 'kid' && o.labeled &&
+        player.x + player.r > o.x && player.x - player.r < o.x + o.w &&
+        player.y + player.r > o.y && player.y - player.r < o.y + o.h);
+
+      if (!isHiddenNow && !dangerTimer) {
+        // If exposed, start 5-second danger timer
+        dangerTimer = setTimeout(() => {
+          gameOver = true;
+          showMessage("Game Over!");
+        }, 5000);
+      } else if (isHiddenNow && dangerTimer) {
+        // If player hides again, cancel timer
+        clearTimeout(dangerTimer);
+        dangerTimer = null;
+      }
+    }
+
+    // Animate kid's movement toward current target position
+    function updateKid() {
+      if (!kid.active || gameOver) return;
+
+      const dx = kid.targetX - kid.x;
+      const dy = kid.targetY - kid.y;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist > kid.speed) {
+        kid.x += kid.speed * dx / dist;
+        kid.y += kid.speed * dy / dist;
+      }
+    }
+
+    function showMessage(text) {
+      messageBox.innerText = text;
+      messageBox.style.display = 'block';
+    }
+
+    // Render all objects and player ball
+    function draw() {
+      ctx.clearRect(0,0,600,600);
+      ctx.strokeRect(0,0,600,600);
+
+      // Draw door
+      ctx.fillStyle='lime';
+      ctx.fillRect(door.x, door.y, door.w, door.h);
+
+      // Draw each object (dimming if labeled)
+      objects.forEach(o => {
+        ctx.globalAlpha = o.labeled ? 0.5 : 1;
+        if (o.img) {
+          ctx.drawImage(o.img, o.x, o.y, o.w, o.h);
+        } else {
+          ctx.fillStyle = o.name === 'door' ? 'lime' : 'gray';
+          ctx.fillRect(o.x, o.y, o.w, o.h);
+        }
+        ctx.globalAlpha = 1;
+      });
+
+      // Check if player is under any labeled object
+      const underObj = objects.some(o => o.name !== 'kid' && o.labeled &&
+        player.x + player.r > o.x && player.x - player.r < o.x + o.w &&
+        player.y + player.r > o.y && player.y - player.r < o.y + o.h);
+
+      // Only draw ball if not under an object
+      if (!underObj) {
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.r, 0, 2 * Math.PI);
+        ctx.fillStyle = 'blue';
+        ctx.fill();
+      }
+    }
+
+    // Handle keypress movement and collision labeling
+    document.addEventListener('keydown', (e) => {
+      if (gameOver || gameWon) return;
+
+      const oldX = player.x, oldY = player.y;
+      if(e.key==='w') player.y -= player.speed;
+      if(e.key==='s') player.y += player.speed;
+      if(e.key==='a') player.x -= player.speed;
+      if(e.key==='d') player.x += player.speed;
+
+      for (let o of objects) {
+        if (o.solid && !o.labeled &&
+          player.x + player.r > o.x && player.x - player.r < o.x + o.w &&
+          player.y + player.r > o.y && player.y - player.r < o.y + o.h) {
+            // Restore previous position
+            player.x = oldX;
+            player.y = oldY;
+
+            // Label the object (except kid)
+            if (o.name !== 'kid') {
+              o.labeled = true;
+              showMessage(o.name);
+            }
+            return;
+        }
+      }
+
+      // Check ball exposure again after move
+      checkIfBallExposed();
+    });
+
+    // Main game loop
+    function loop() {
+      updateKid();
+      draw();
+      if (graceEnded) checkIfBallExposed();
+      requestAnimationFrame(loop);
+    }
+    loop();
+  </script>
+</body>
+</html>
