@@ -42,7 +42,8 @@
 </head>
 <body>
   <canvas id="gameCanvas" width="600" height="600"></canvas>
-  <div id="introBox">Objective: Hide the blue ball under any object before the kid finds it!</div>
+  <div id="introBox">Objective: Hide the blue ball under any object before the kid finds it!<br>
+  WASD on PC and press-hold arrow keys on mobile device</div>
   <div id="messageBox"></div>
 
   <!-- Arrow control buttons -->
@@ -100,13 +101,27 @@
     let graceEnded = false;
     let dangerTimer = null;
 
+    // Activate kid after 10s, and set up game win and game over checks
     setTimeout(() => {
       kid.active = true;
+
+      // Start moving kid randomly every few seconds while active
+      const movementInterval = setInterval(() => {
+        if (!kid.active || gameOver || gameWon) {
+          clearInterval(movementInterval);
+        } else {
+          kid.targetX = Math.random() * (canvas.width - kid.w);
+          kid.targetY = Math.random() * (canvas.height - kid.h);
+        }
+      }, 3000); // Move kid every 3 seconds
+
+      // End grace period after 5 seconds
       setTimeout(() => {
         graceEnded = true;
         checkIfBallExposed();
       }, 5000);
 
+      // Kid leaves the room and show win message after 50 seconds
       setTimeout(() => {
         if (!gameOver) {
           gameWon = true;
